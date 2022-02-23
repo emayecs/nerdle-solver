@@ -130,53 +130,6 @@ def generate_equations(x):
             equations.append(eq)
     return equations
 
-def filter_equations(conditions, equal_conditions):
-    global valid_equations
-    length = 8
-    operations = ['+','-','*','/']
-    digits = []
-    for i in range(0,10):
-        digits.append(str(i))
-    symbols = digits + operations
-
-    symbol_count = [0]*len(symbols)
-    for c in conditions:
-        for s in c:
-            symbol_count[symbols.index(s)]+=1
-    
-    i=0
-    highest_value = 0
-    best_equation = ""
-
-    while i<len(valid_equations):
-        equation_symbols = []
-        value = 0
-        equation = valid_equations[i]
-
-        equal_index = equation.index('=')
-        if (equal_conditions[equal_index+1]==False):
-            valid_equations.pop(i)
-            continue
-
-        # checks if each character is allowed at the position
-        pop = False
-        for j in range(0,length):
-            if not equation[j] in conditions[j]:
-                valid_equations.pop(i)
-                pop = True
-                break
-            if not equation[j] in equation_symbols:
-                equation_symbols.append(equation[j])
-                value+=symbol_count[symbols.index(equation[j])]
-        if (pop):
-            continue
-
-        if (value>highest_value):
-            best_equation = equation
-            highest_value = value
-        i+=1
-
-    return best_equation
 '''
 generates all possible equations that compute
 additional restraints:
@@ -236,12 +189,12 @@ def bf_equations(conditions, equals_conditions):
                 with open('valid_equations.json','w') as f:
                         json.dump({"indices":indices,"equations":equations}, f ,indent = 2)
                 t0 = time.perf_counter()
-    with open('valid_equations.json','w') as f:
-        json.dump({"indices":indices,"equations":equations}, f ,indent = 2)
+    
     print(eq_count) 
     return equations
 
 def ask():
+    global valid_equations
     pp = pprint.PrettyPrinter()
     #assumes length of 8
     operations = ['+','-','*','/']
@@ -251,15 +204,11 @@ def ask():
         digits.append(str(i))
     symbols = digits + operations
 
-    '''
     guess = input("Enter the guess.\n")
     while (not equation_computes(guess)):
         print("Equation does not compute.")
         guess = input("Enter the guess.\n")
     result = input("Enter the result.\n")
-    '''
-    guess="35+46=81"
-    result="BBPPPGBB"
 
     length = 8
     conditions=[]
@@ -270,53 +219,101 @@ def ask():
             conditions.append(symbols.copy())
     equals_conditions = [True]*(length-2)
 
-    for i in range(0, len(result)):
-        if result[i].upper()=='B':
-            for j in range(0, len(conditions)):
-                conditions[j].remove(guess[i])
-        elif result[i].upper()=='P':
-            if guess[i]=='=':
-                equals_conditions[i-1]=False
-            else:
-                conditions[i].remove(guess[i])
-        else:
-            if guess[i].upper()=='=':
-                for j in range(0, len(equals_conditions)):
-                    if (j!=i-1):
-                        equals_conditions[j] = False
-            else:
-                conditions[i]=[guess[i]]
+    while (result!="exit"):
+        for i in range(0, len(result)):
+            if result[i].upper()=='B' and guess.index(guess[i])==i:
+                for j in range(0, len(conditions)):
+                    if guess[i] in conditions[j]:
+                        conditions[j].remove(guess[i])
+            elif result[i].upper()=='P':
+                if guess[i]=='=':
+                    equals_conditions[i-1]=False
+                else:
+                    if guess[i] in conditions[i]:
+                        conditions[i].remove(guess[i])
+            elif result[i].upper()=='G':
+                if guess[i].upper()=='=':
+                    for j in range(0, len(equals_conditions)):
+                        if (j!=i-1):
+                            equals_conditions[j] = False
+                else:
+                    conditions[i]=[guess[i]]
 
-    #pp.pprint(conditions)
-    
-    bf_equations(conditions, equals_conditions)
+        guess = filter_equations(conditions, equals_conditions)
+        print("Best Guess: "+guess)
+        print("Probability: "+str(1/len(valid_equations)*100)+"%")
+        #pp.pprint(conditions)
+        result = input("Enter the result.\n")
+        if (result=="exit"):
+            break
+    #"87-53=34"
 
-def main():
+
+def filter_equations(conditions, equals_conditions):
     global valid_equations
+    length = 8
     operations = ['+','-','*','/']
     digits = []
-    
     for i in range(0,10):
         digits.append(str(i))
     symbols = digits + operations
 
-    length = 8
-    conditions=[]
-    for i in range(0,length):
-        if i==0 or i==length-1:
-            conditions.append(digits.copy())
-        else:
-            conditions.append(symbols.copy())
+    symbol_count = [0]*len(symbols)
+    for c in conditions:
+        for s in c:
+            symbol_count[symbols.index(s)]+=1
 
-    equals_conditions = [True]*(length-2)
-    bf_equations(conditions, equals_conditions)
-    '''
+    i=0
+    highest_value = 0
+    best_equation = ""
+    done = False
+
+    while i<len(valid_equations):
+        
+        equation_symbols = []
+        value = 0
+        equation = valid_equations[i]
+
+        equal_index = equation.index('=')
+        if (not equals_conditions[equal_index-1]):
+            valid_equations.pop(i)
+            continue
+
+        # checks if each character is allowed at the position
+        pop = False
+        for j in range(0,length):
+            if equation[j]=='=':
+                continue
+            if not equation[j] in conditions[j]:
+                valid_equations.pop(i)
+                pop = True
+                break
+            if not equation[j] in equation_symbols:
+                equation_symbols.append(equation[j])
+                value+=symbol_count[symbols.index(equation[j])]
+        if (pop):
+            continue
+
+        if value>highest_value or best_equation=='':
+            best_equation = equation
+            highest_value = value
+        i+=1
+    
+    return best_equation
+
+def main():
+    global valid_equations
+
     try:
         with open('valid_equations.json','r') as f:
-            valid_equations = json.load(f)
-    except: 
-        bf_equations(conditions, equals_conditions)
-    '''
+            data = json.load(f)
+            valid_equations = data["equations"]
+            indices = data["indices"]
+    except:
+        pass
+
+    ask()
+    
 
 if __name__ == "__main__":
     main()
