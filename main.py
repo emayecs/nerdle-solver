@@ -2,6 +2,19 @@ from random import randint
 import time, pprint, json
 
 valid_equations = [] #all possible equations that compute
+SYMBOLS = ['0','1','2','3','4','5','6','7','8','9','+','-','*','/']
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 def is_operation(c):
     operations = ['+','-','*','/','=']
@@ -130,53 +143,6 @@ def generate_equations(x):
             equations.append(eq)
     return equations
 
-def filter_equations(conditions, equal_conditions):
-    global valid_equations
-    length = 8
-    operations = ['+','-','*','/']
-    digits = []
-    for i in range(0,10):
-        digits.append(str(i))
-    symbols = digits + operations
-
-    symbol_count = [0]*len(symbols)
-    for c in conditions:
-        for s in c:
-            symbol_count[symbols.index(s)]+=1
-    
-    i=0
-    highest_value = 0
-    best_equation = ""
-
-    while i<len(valid_equations):
-        equation_symbols = []
-        value = 0
-        equation = valid_equations[i]
-
-        equal_index = equation.index('=')
-        if (equal_conditions[equal_index+1]==False):
-            valid_equations.pop(i)
-            continue
-
-        # checks if each character is allowed at the position
-        pop = False
-        for j in range(0,length):
-            if not equation[j] in conditions[j]:
-                valid_equations.pop(i)
-                pop = True
-                break
-            if not equation[j] in equation_symbols:
-                equation_symbols.append(equation[j])
-                value+=symbol_count[symbols.index(equation[j])]
-        if (pop):
-            continue
-
-        if (value>highest_value):
-            best_equation = equation
-            highest_value = value
-        i+=1
-
-    return best_equation
 '''
 generates all possible equations that compute
 additional restraints:
@@ -236,12 +202,16 @@ def bf_equations(conditions, equals_conditions):
                 with open('valid_equations.json','w') as f:
                         json.dump({"indices":indices,"equations":equations}, f ,indent = 2)
                 t0 = time.perf_counter()
-    with open('valid_equations.json','w') as f:
-        json.dump({"indices":indices,"equations":equations}, f ,indent = 2)
+    
     print(eq_count) 
     return equations
 
+'''
+Asks the user for their initial guess and result, and from there, provides guesses to solve the nerdle
+'''
 def ask():
+    global valid_equations
+    reset_valid_equations()
     pp = pprint.PrettyPrinter()
     #assumes length of 8
     operations = ['+','-','*','/']
@@ -251,16 +221,13 @@ def ask():
         digits.append(str(i))
     symbols = digits + operations
 
-    '''
     guess = input("Enter the guess.\n")
     while (not equation_computes(guess)):
         print("Equation does not compute.")
         guess = input("Enter the guess.\n")
     result = input("Enter the result.\n")
-    '''
-    guess="35+46=81"
-    result="BBPPPGBB"
 
+    #conditions start with allowing all symbols in all places
     length = 8
     conditions=[]
     for i in range(0,length):
@@ -270,29 +237,58 @@ def ask():
             conditions.append(symbols.copy())
     equals_conditions = [True]*(length-2)
 
-    for i in range(0, len(result)):
-        if result[i].upper()=='B':
-            for j in range(0, len(conditions)):
-                conditions[j].remove(guess[i])
-        elif result[i].upper()=='P':
-            if guess[i]=='=':
-                equals_conditions[i-1]=False
-            else:
-                conditions[i].remove(guess[i])
-        else:
-            if guess[i].upper()=='=':
-                for j in range(0, len(equals_conditions)):
-                    if (j!=i-1):
-                        equals_conditions[j] = False
-            else:
-                conditions[i]=[guess[i]]
+    while (result!="exit"):
+        frequency = [0]*len(symbols)
+        for i in range(0, len(result)):                
+            if result[i].upper()=='B':
+                if guess.index(guess[i])==i:
+                    #if the guess x is the first x in the guess, then no x's are in the equation
+                    for j in range(0, len(conditions)):
+                        if guess[i] in conditions[j]:
+                            conditions[j].remove(guess[i])
+                else:
+                    if (frequency[symbols.index(guess[i])]>=1):
+                        #the guess is in the equation, but not here
+                        conditions[i].remove(guess[i])
+                    else:
+                        #there are no more guesses in the equation
+                        for j in range(0, len(conditions)):
+                            #x is green here
+                            if len(conditions[j])==1 and conditions[j][0]==guess[i]:
+                                continue
+                            if guess[i] in conditions[j]:
+                                conditions[j].remove(guess[i])
+            elif result[i].upper()=='P':
+                if guess[i]=='=':
+                    equals_conditions[i-1]=False
+                else:
+                    frequency[symbols.index(guess[i])]+=1
+                    if guess[i] in conditions[i]:
+                        conditions[i].remove(guess[i])
+            elif result[i].upper()=='G':
+                if guess[i].upper()=='=':
+                    for j in range(0, len(equals_conditions)):
+                        if (j!=i-1):
+                            equals_conditions[j] = False
+                else:
+                    conditions[i]=[guess[i]]
 
-    #pp.pprint(conditions)
-    
-    bf_equations(conditions, equals_conditions)
+        #pp.pprint(conditions)
+        guess = filter_equations(conditions, equals_conditions)
+        print("Best Guess: "+guess)
+        print("Probability: "+str(1/len(valid_equations)*100)+"%")
+        result = input("Enter the result.\n")
+        if (result=="exit"):
+            break
 
-def main():
+'''
+run a simulation of solving a nerdle
+'''
+def solve(target):
     global valid_equations
+    guesses = ["35+46=81"]
+    pp = pprint.PrettyPrinter()
+    #assumes length of 8
     operations = ['+','-','*','/']
     digits = []
     
@@ -300,6 +296,13 @@ def main():
         digits.append(str(i))
     symbols = digits + operations
 
+    guess = "35+46=81"
+    result = equation_similarity(target, guess)
+    color_guess(result, guess)
+
+    turns = 0
+
+    #conditions start with allowing all symbols in all places
     length = 8
     conditions=[]
     for i in range(0,length):
@@ -307,16 +310,210 @@ def main():
             conditions.append(digits.copy())
         else:
             conditions.append(symbols.copy())
-
     equals_conditions = [True]*(length-2)
-    bf_equations(conditions, equals_conditions)
-    '''
+
+    while (turns<6):
+        turns+=1
+        frequency = [0]*len(symbols)
+        for i in range(0, len(result)):                
+            if result[i].upper()=='B':
+                if guess.index(guess[i])==i:
+                    #if the guess x is the first x in the guess, then no x's are in the equation
+                    for j in range(0, len(conditions)):
+                        if guess[i] in conditions[j]:
+                            conditions[j].remove(guess[i])
+                else:
+                    if (frequency[symbols.index(guess[i])]>=1):
+                        #the guess is in the equation, but not here
+                        conditions[i].remove(guess[i])
+                    else:
+                        #there are no more guesses in the equation
+                        for j in range(0, len(conditions)):
+                            #x is green here
+                            if len(conditions[j])==1 and conditions[j][0]==guess[i]:
+                                continue
+                            if guess[i] in conditions[j]:
+                                conditions[j].remove(guess[i])
+            elif result[i].upper()=='P':
+                if guess[i]=='=':
+                    equals_conditions[i-1]=False
+                else:
+                    frequency[symbols.index(guess[i])]+=1
+                    if guess[i] in conditions[i]:
+                        conditions[i].remove(guess[i])
+            elif result[i].upper()=='G':
+                if guess[i].upper()=='=':
+                    for j in range(0, len(equals_conditions)):
+                        if (j!=i-1):
+                            equals_conditions[j] = False
+                else:
+                    conditions[i]=[guess[i]]
+        #pp.pprint(conditions)
+        guess = filter_equations(conditions, equals_conditions)
+        guesses.append(guess)
+        result = equation_similarity(target, guess)
+        color_guess(result, guess)
+        if (guess==target):
+            break
+        #print(guess)
+        #print(result)
+    #print(guesses)
+    if (len(valid_equations)!=1 and guess!=target):
+        print(f"{bcolors.WARNING}WARNING: failed to solve {target} within 6 turns{bcolors.ENDC}",end="")
+    return guesses
+
+'''
+Given a target equation, return the result/similarity of the guess in terms of green, purple, and black
+'''
+def equation_similarity(target, guess):
+    similarity = "."*len(guess)
+    operations = ['+','-','*','/','=']
+    digits = []
+    for i in range(0,10):
+        digits.append(str(i))
+    symbols = digits + operations
+    frequency = [0]*len(symbols)
+    for i in range(0, len(guess)):
+        if guess[i]==target[i]:
+            similarity=similarity[:i]+"G"+similarity[i+1:]
+        else:
+            frequency[symbols.index(target[i])]+=1
+    for i in range(0, len(guess)):
+        if similarity[i]=="G":
+            continue
+        index = symbols.index(guess[i])
+        if frequency[index]>=1:
+            frequency[index]-=1
+            similarity=similarity[:i]+"P"+similarity[i+1:]
+        else:
+            similarity=similarity[:i]+"B"+similarity[i+1:]
+    return similarity
+
+'''
+filter equations that don't match the current conditions
+'''
+def filter_equations(conditions, equals_conditions):
+    global valid_equations
+    length = 8
+    operations = ['+','-','*','/']
+    digits = []
+    for i in range(0,10):
+        digits.append(str(i))
+    symbols = digits + operations
+
+    symbol_count = [0]*len(symbols)
+    for c in conditions:
+        for s in c:
+            symbol_count[symbols.index(s)]+=1
+
+    i=0
+    highest_value = 0
+    best_equation = ""
+    done = False
+
+    while i<len(valid_equations):
+        
+        equation_symbols = []
+        value = 0
+        equation = valid_equations[i]
+
+        equal_index = equation.index('=')
+        if (not equals_conditions[equal_index-1]):
+            valid_equations.pop(i)
+            continue
+
+        # checks if each character is allowed at the position
+        pop = False
+        for j in range(0,length):
+            if equation[j]=='=':
+                continue
+            if not equation[j] in conditions[j]:
+                valid_equations.pop(i)
+                pop = True
+                break
+            if not equation[j] in equation_symbols:
+                equation_symbols.append(equation[j])
+                value+=symbol_count[symbols.index(equation[j])]
+        if (pop):
+            continue
+
+        if value>highest_value or best_equation=='':
+            best_equation = equation
+            highest_value = value
+        i+=1
+    return best_equation
+
+'''
+simulates solving n nerdles
+'''
+def run_simulation(n):
+    global valid_equations
+    for i in range(n):
+        reset_valid_equations()
+        target = valid_equations[randint(0,len(valid_equations)-1)]
+        try:
+            print("Equation: "+target)
+            solve(target)
+        except Exception as e: 
+            print("error with: "+target)
+            print(e)
+            break
+        print()
+
+'''
+resets valid_equations to the equations stored in the json file
+'''
+def reset_valid_equations():
+    global valid_equations
     try:
         with open('valid_equations.json','r') as f:
-            valid_equations = json.load(f)
-    except: 
-        bf_equations(conditions, equals_conditions)
-    '''
+            data = json.load(f)
+            valid_equations = data["equations"]
+            indices = data["indices"]
+    except:
+        pass
+
+'''
+starts a nerdle game with a random equation
+'''
+def play():
+    global valid_equations
+    reset_valid_equations()
+    target = valid_equations[randint(0,len(valid_equations)-1)]
+    guesses = 0
+    guesses=[]
+    results=[]
+    while (len(guesses)<6):
+        guess = input("Enter your guess")
+        while (not equation_computes(guess)):
+            print("Equation does not compute.")
+            guess = input("Enter the guess.\n")
+        guesses.append(guess)
+        result = equation_similarity(target, guess)
+        results.append(result)
+        for i in range(len(guesses)):
+            guess = guesses[i]
+            result = results[i]
+            color_guess(result, guess)
+        if (target==guess):
+            return
+
+'''
+Given a guess and its result, print the color-coded version
+'''
+def color_guess(result, guess):
+    for j in range(len(guess)):
+        if result[j]=="G":
+            print(f"{bcolors.OKGREEN}{guess[j]}{bcolors.ENDC}",end="")
+        if result[j]=="P":
+            print(f"{bcolors.HEADER}{guess[j]}{bcolors.ENDC}",end="")
+        if result[j]=="B":
+            print(guess[j],end="")
+    print()
+
+def main():
+    run_simulation(10)
+    
 
 if __name__ == "__main__":
     main()
