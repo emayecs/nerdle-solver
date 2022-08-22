@@ -1,5 +1,5 @@
 from random import randint
-import time, pprint, json
+import time, pprint, json, argparse, sys
 
 valid_equations = [] #all possible equations that compute
 SYMBOLS = ['0','1','2','3','4','5','6','7','8','9','+','-','*','/']
@@ -209,7 +209,7 @@ def bf_equations(conditions, equals_conditions):
 '''
 Asks the user for their initial guess and result, and from there, provides guesses to solve the nerdle
 '''
-def ask():
+def ask(guess, result):
     global valid_equations
     reset_valid_equations()
     pp = pprint.PrettyPrinter()
@@ -221,11 +221,13 @@ def ask():
         digits.append(str(i))
     symbols = digits + operations
 
+    '''
     guess = input("Enter the guess.\n")
     while (not equation_computes(guess)):
         print("Equation does not compute.")
         guess = input("Enter the guess.\n")
     result = input("Enter the result.\n")
+    '''
 
     #conditions start with allowing all symbols in all places
     length = 8
@@ -484,19 +486,41 @@ def play():
     guesses=[]
     results=[]
     while (len(guesses)<6):
-        guess = input("Enter your guess")
+        print()
+        for i in range(6):
+            if i<len(guesses):
+                guess = guesses[i]
+                result = results[i]
+                color_guess(result, guess)
+            else:
+                print(u"\u2588"*8)
+        print()
+        guess = input()
+        if (guess == 'ex'):
+            return
+        while (len(guess)!=len(target)):
+            print("guess must be length "+len(target))
+            print()
+            guess = input()
         while (not equation_computes(guess)):
             print("Equation does not compute.")
-            guess = input("Enter the guess.\n")
+            print()
+            guess = input()
         guesses.append(guess)
         result = equation_similarity(target, guess)
         results.append(result)
-        for i in range(len(guesses)):
+        if (target==guess):
+            return
+            
+    for i in range(6):
+        if i<len(guesses):
             guess = guesses[i]
             result = results[i]
             color_guess(result, guess)
-        if (target==guess):
-            return
+        else:
+            print(u"\u2588"*8)
+
+    print('The answer was: '+target)
 
 '''
 Given a guess and its result, print the color-coded version
@@ -512,7 +536,29 @@ def color_guess(result, guess):
     print()
 
 def main():
-    run_simulation(10)
+    parser = argparse.ArgumentParser(description='Nerdle Solver & Utility')
+    
+    subparser = parser.add_subparsers(dest='command')
+    solve_parser= subparser.add_parser('solve')
+    play_parser = subparser.add_parser('play')
+    simulate_parser = subparser.add_parser('simulate')
+    
+    solve_parser.add_argument('guess', type = str, help = "guess for the equation")
+    solve_parser.add_argument('result', type = str,  help = "string, each letter denoting the result of the guess")
+
+    simulate_parser.add_argument('iterations', type = int, help = "number of desired simulations")
+
+    args = parser.parse_args()
+    
+
+    if args.command == 'solve':
+        ask(args.guess, args.result)
+    elif args.command == 'play':
+        play()
+    elif args.command == 'simulate':
+        if (args.iterations<=0):
+            parser.error('iterations must be >= 1')
+        run_simulation(args.iterations)
     
 
 if __name__ == "__main__":
