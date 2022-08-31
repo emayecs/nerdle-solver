@@ -221,14 +221,6 @@ def ask(guess, result):
         digits.append(str(i))
     symbols = digits + operations
 
-    '''
-    guess = input("Enter the guess.\n")
-    while (not equation_computes(guess)):
-        print("Equation does not compute.")
-        guess = input("Enter the guess.\n")
-    result = input("Enter the result.\n")
-    '''
-
     #conditions start with allowing all symbols in all places
     length = 8
     conditions=[]
@@ -275,18 +267,24 @@ def ask(guess, result):
                 else:
                     conditions[i]=[guess[i]]
 
-        #pp.pprint(conditions)
         guess = filter_equations(conditions, equals_conditions)
+        
         print("Best Guess: "+guess)
-        print("Probability: "+str(1/len(valid_equations)*100)+"%")
-        result = input("Enter the result.\n")
+
+        probability = 1/len(valid_equations)*100
+        print("Probability: "+str(probability)+"%")
+
+        if probability==100:
+            return
+
+        result = input("Enter the result:\n")
         if (result=="exit"):
-            break
+            return
 
 '''
 run a simulation of solving a nerdle
 '''
-def solve(target):
+def simulate(target):
     global valid_equations
     guesses = ["35+46=81"]
     pp = pprint.PrettyPrinter()
@@ -357,9 +355,7 @@ def solve(target):
         color_guess(result, guess)
         if (guess==target):
             break
-        #print(guess)
-        #print(result)
-    #print(guesses)
+
     if (len(valid_equations)!=1 and guess!=target):
         print(f"{bcolors.WARNING}WARNING: failed to solve {target} within 6 turns{bcolors.ENDC}",end="")
     return guesses
@@ -455,7 +451,7 @@ def run_simulation(n):
         target = valid_equations[randint(0,len(valid_equations)-1)]
         try:
             print("Equation: "+target)
-            solve(target)
+            simulate(target)
         except Exception as e: 
             print("error with: "+target)
             print(e)
