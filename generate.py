@@ -1,38 +1,21 @@
 from random import randint
 from tqdm import tqdm
-import time, json
-
-valid_equations = [] #all possible equations that compute
+import json
 
 def is_operation(c):
     operations = ['+','-','*','/','=']
     return c in operations
 
-'''
-determines if the equation has any errors (may or may not compute)
-'''
-def valid_equation(eq):
-    if (is_operation(eq[0]) or is_operation(eq[-1])):
-        return False
-    if (eq.count('=')!=1):
-        return False
-    for i in range(0,len(eq)):
-        # if an operation is next to another operation
-        if (not is_operation(eq[i])):
-            continue
-        if (i+1<len(eq) and is_operation(eq[i+1])):
-            return False
-    if '/' in eq:
-        # divide by 0
-        for i in range(0, len(eq)-1):
-            if eq[i]=='/' and eq[i+1]=='0':
-                return False
-    return True
+def is_valid_equation(eq):
+    index = eq.index('=')
+    ex1 = eq[0:index]
+    ex2 = eq[index+1:]
+    return is_valid_expression(ex1) and is_valid_expression(ex2)
 
 '''
 determines if the expression has any errors
 '''
-def valid_expression(ex):
+def is_valid_expression(ex):
     # negative numbers are ok
     if (is_operation(ex[0]) and ex[0]!='-' or is_operation(ex[-1])):
         return False
@@ -56,7 +39,7 @@ def valid_expression(ex):
         if is_operation(ex[i]) and ex[i+1]=='-' and ex[i+2]=='0':
             return False
 
-    # divide by 0
+    #prevent dividing by 0
     ex_copy = ex
     while '/' in ex_copy:
         index = ex_copy.index('/')
@@ -66,8 +49,11 @@ def valid_expression(ex):
 
     return True
 
+'''
+evalutes an expression's value
+'''
 def evaluate_expression(ex):
-    if not valid_expression(ex):
+    if not is_valid_expression(ex):
         raise RuntimeError(f'{ex} is not a valid expression')
 
     ex_split = []
@@ -128,10 +114,10 @@ def evaluate_expression(ex):
 
 '''
 determines if both sides of an equation equals each other
-returns value if it computes and >=0, otherwise false
+returns value if it computes, otherwise false
 '''
 def equation_computes(eq):
-    if (not valid_equation(eq)):
+    if (not is_valid_equation(eq)):
         return False
     equals_index = eq.index('=')
     left = evaluate_expression(eq[:equals_index])
@@ -180,7 +166,7 @@ def generate_random(x):
         eq_pos = randint(1,6)
         eq = eq[:eq_pos]+'='+eq[eq_pos:]
         
-        if (valid_equation(eq) and contains_symbol):
+        if (is_valid_equation(eq) and contains_symbol):
             counter+=1
             equations.append(eq)
     return equations
@@ -212,12 +198,26 @@ def generate_indices(length):
     return indices
 
 '''
+writes all data into json file
+'''
+def write_data(equations, left_ex_length, right_ex_length, left_ex_indices, right_ex_indices, generated_left_ex):
+    with open('equations.json','w') as f:
+        json.dump(
+            {"equations": equations,
+            "lengths":[left_ex_length, right_ex_length],
+            "indices":[left_ex_indices, right_ex_indices],
+            "generated":generated_left_ex,
+            },
+        f,indent = 2)
+'''
 generates possible equations (default length 8)
 - no leading zeroes (e.g. 004*3=12)
-- negatives allowed, no negative 0 (e.g. -0+6-5=1)
+- negatives allowed except for -0 (e.g. -0+6-5=1)
 - fractions not allowed (e.g. 5/4=10/8)
+
+takes ~35 seconds
 '''
-def complete_generate(length=8, save_time=60):
+def generate_equations(length=8):
     left_ex_length = 1
     right_ex_length = length-left_ex_length-1
 
@@ -233,7 +233,7 @@ def complete_generate(length=8, save_time=60):
     equations = []
 
     try:
-        with open('total_equations.json','r') as f:
+        with open('equations.json','r') as f:
             data = json.load(f)
             equations = data["equations"]
             left_ex_length = data["lengths"][0]
@@ -257,17 +257,9 @@ def complete_generate(length=8, save_time=60):
         for i in range(int(pow(10,left_ex_length-1))-1):
             generated_left_ex.append([])
             
-        with open('total_equations.json','w') as f:
-            json.dump(
-                {"equations": equations,
-                "lengths":[left_ex_length, right_ex_length],
-                "indices":[left_ex_indices, right_ex_indices],
-                "generated":generated_left_ex,
-                },
-                f,indent = 2)
+        write_data(equations, left_ex_length, right_ex_length, left_ex_indices, right_ex_indices, generated_left_ex)
 
     while left_ex_length<=right_ex_length:
-        t0 = time.perf_counter()
 
         left_permutations = 1
         for i in range(left_ex_length):
@@ -284,7 +276,7 @@ def complete_generate(length=8, save_time=60):
                 left_ex+=left_ex_values[i][index]
             
             #add expression to array if valid
-            if valid_expression(left_ex) and not leading_zeroes(left_ex):
+            if is_valid_expression(left_ex) and not leading_zeroes(left_ex):
                 value = evaluate_expression(left_ex)
                 if value==int(value):
                     value = int(value)
@@ -302,19 +294,6 @@ def complete_generate(length=8, save_time=60):
                     left_ex_indices[i]=0
                     left_ex_indices[i+1]+=1
 
-            #save data every save_time seconds
-            t1 = time.perf_counter()
-            if t1-t0>=save_time:
-                t0 = t1
-                with open('total_equations.json','w') as f:
-                    json.dump(
-                        {"equations": equations,
-                        "lengths":[left_ex_length, right_ex_length],
-                        "indices":[left_ex_indices, right_ex_indices],
-                        "generated":generated_left_ex,
-                        },
-                        f,indent = 2)
-
         right_permutations = 1
         for i in range(right_ex_length):
             right_permutations*=len(right_ex_values[i])
@@ -322,7 +301,7 @@ def complete_generate(length=8, save_time=60):
         for tqdm_counter in tqdm(range(right_permutations)):
             if right_ex_indices[-1]>=len(right_ex_values[-1]):
                 break
-            
+
             right_ex = ""
 
             #generate expression
@@ -331,7 +310,7 @@ def complete_generate(length=8, save_time=60):
                 right_ex+=right_ex_values[i][index]
             
             #check if expression is valid
-            if valid_expression(right_ex) and not leading_zeroes(right_ex):
+            if is_valid_expression(right_ex) and not leading_zeroes(right_ex):
                 value = evaluate_expression(right_ex)
                 #check if value is within bounds of LHS
                 if value==int(value) and value<int(pow(10,left_ex_length)) and value>-1*int(pow(10,left_ex_length-1)):
@@ -353,28 +332,8 @@ def complete_generate(length=8, save_time=60):
                 if right_ex_indices[i]==len(right_ex_values[i]):
                     right_ex_indices[i]=0
                     right_ex_indices[i+1]+=1
-            
-            #save data every save_time seconds
-            t1 = time.perf_counter()
-            if t1-t0>=save_time:
-                t0 = t1
-                with open('total_equations.json','w') as f:
-                    json.dump(
-                        {"equations": equations,
-                        "lengths":[left_ex_length, right_ex_length],
-                        "indices":[left_ex_indices, right_ex_indices],
-                        "generated":generated_left_ex,
-                        },
-                        f,indent = 2)
 
-        with open('total_equations.json','w') as f:
-            json.dump(
-                {"equations": equations,
-                "lengths":[left_ex_length, right_ex_length],
-                "indices":[left_ex_indices, right_ex_indices],
-                "generated":generated_left_ex,
-                },
-                f,indent = 2)
+        write_data(equations, left_ex_length, right_ex_length, left_ex_indices, right_ex_indices, generated_left_ex)
         
         #reset variables
         left_ex_length+=1
@@ -394,93 +353,8 @@ def complete_generate(length=8, save_time=60):
     
     print("\ncompleted equation generation\n")
 
-'''
-generates all possible equations that compute
-additional restraints:
-- no leading zeroes
-- equation != 0
-- consequently, must have >=1 operation
-'''
-def generate_equations(conditions, equals_conditions): 
-    global valid_equations
-    
-    operations = ['+','-','*','/']
-    digits = []
-    for i in range(0,10):
-        digits.append(str(i))
-    symbols = digits + operations
-    
-    length = 8
-    indices = [0] * length
-
-    eq_count = 0
-    equations = valid_equations
-
-    try:
-        with open('valid_equations.json','r') as f:
-            data = json.load(f)
-            valid_equations = data["equations"]
-            equations = valid_equations
-            indices = data["indices"]
-    except:
-        pass
-
-    t0 = time.perf_counter()
-    while (indices[length-1]<len(conditions[length-1])):
-        eq = ""
-        for i in range(0,len(indices)):
-            eq+=conditions[i][indices[i]]
-        indices[0]+=1
-
-        for i in range(0,length-1):
-            if (indices[i]==len(conditions[i])):
-                indices[i]=0
-                indices[i+1]+=1
-            if (indices[i]>9 and indices[i+1]>9):
-                #skips index if index next to it is an operation
-                indices[i]=0
-                indices[i+1]+=1
-
-        for i in range(0,len(equals_conditions)):
-            if (not equals_conditions[i]):
-                continue
-            temp_eq = eq[:i+1]+'='+eq[i+2:]
-            if (equation_computes(temp_eq) and not leading_zeroes(temp_eq) and eq[i+1]=='0'): 
-                # last condition prevents repeated equations
-                eq_count+=1
-                equations.append(temp_eq) 
-            if time.perf_counter()-t0>60:
-                with open('valid_equations.json','w') as f:
-                        json.dump({"indices":indices,"equations":equations}, f ,indent = 2)
-                t0 = time.perf_counter()
-    with open('valid_equations.json','w') as f:
-        json.dump({"indices":indices,"equations":equations}, f ,indent = 2)
-    print(eq_count) 
-    return equations
-
 def main():
-    complete_generate()
-    '''
-    global valid_equations
-    operations = ['+','-','*','/']
-    digits = []
-    
-    for i in range(0,10):
-        digits.append(str(i))
-    symbols = digits + operations
-
-    length = 8
-    conditions=[]
-    for i in range(0,length):
-        if i==0 or i==length-1:
-            conditions.append(digits.copy())
-        else:
-            conditions.append(symbols.copy())
-
-    equals_conditions = [True]*(length-2)
-    generate_equations(conditions, equals_conditions)
-    '''
-
+    generate_equations()
 
 if __name__ == "__main__":
     main()

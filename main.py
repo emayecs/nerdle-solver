@@ -1,7 +1,7 @@
 from random import randint
 import time, pprint, json, argparse, sys
 
-valid_equations = [] #all possible equations that compute
+EQUATIONS = [] 
 SYMBOLS = ['0','1','2','3','4','5','6','7','8','9','+','-','*','/']
 
 class bcolors:
@@ -151,7 +151,7 @@ additional restraints:
 - consequently, must have >=1 operation
 '''
 def bf_equations(conditions, equals_conditions): 
-    global valid_equations
+    global EQUATIONS
     
     operations = ['+','-','*','/']
     digits = []
@@ -163,13 +163,13 @@ def bf_equations(conditions, equals_conditions):
     indices = [0] * length
 
     eq_count = 0
-    equations = valid_equations
+    equations = EQUATIONS
 
     try:
         with open('valid_equations.json','r') as f:
             data = json.load(f)
-            valid_equations = data["equations"]
-            equations = valid_equations
+            EQUATIONS = data["equations"]
+            equations = EQUATIONS
             indices = data["indices"]
     except:
         pass
@@ -210,7 +210,7 @@ def bf_equations(conditions, equals_conditions):
 Asks the user for their initial guess and result, and from there, provides guesses to solve the nerdle
 '''
 def ask(guess, result):
-    global valid_equations
+    global EQUATIONS
     reset_valid_equations()
     pp = pprint.PrettyPrinter()
     #assumes length of 8
@@ -271,7 +271,7 @@ def ask(guess, result):
         
         print("Best Guess: "+guess)
 
-        probability = 1/len(valid_equations)*100
+        probability = 1/len(EQUATIONS)*100
         print("Probability: "+str(probability)+"%")
 
         if probability==100:
@@ -285,7 +285,7 @@ def ask(guess, result):
 run a simulation of solving a nerdle
 '''
 def simulate(target):
-    global valid_equations
+    global EQUATIONS
     guesses = ["35+46=81"]
     pp = pprint.PrettyPrinter()
     #assumes length of 8
@@ -356,7 +356,7 @@ def simulate(target):
         if (guess==target):
             break
 
-    if (len(valid_equations)!=1 and guess!=target):
+    if (len(EQUATIONS)!=1 and guess!=target):
         print(f"{bcolors.WARNING}WARNING: failed to solve {target} within 6 turns{bcolors.ENDC}",end="")
     return guesses
 
@@ -391,7 +391,7 @@ def equation_similarity(target, guess):
 filter equations that don't match the current conditions
 '''
 def filter_equations(conditions, equals_conditions):
-    global valid_equations
+    global EQUATIONS
     length = 8
     operations = ['+','-','*','/']
     digits = []
@@ -409,15 +409,15 @@ def filter_equations(conditions, equals_conditions):
     best_equation = ""
     done = False
 
-    while i<len(valid_equations):
+    while i<len(EQUATIONS):
         
         equation_symbols = []
         value = 0
-        equation = valid_equations[i]
+        equation = EQUATIONS[i]
 
         equal_index = equation.index('=')
         if (not equals_conditions[equal_index-1]):
-            valid_equations.pop(i)
+            EQUATIONS.pop(i)
             continue
 
         # checks if each character is allowed at the position
@@ -426,7 +426,7 @@ def filter_equations(conditions, equals_conditions):
             if equation[j]=='=':
                 continue
             if not equation[j] in conditions[j]:
-                valid_equations.pop(i)
+                EQUATIONS.pop(i)
                 pop = True
                 break
             if not equation[j] in equation_symbols:
@@ -445,10 +445,10 @@ def filter_equations(conditions, equals_conditions):
 simulates solving n nerdles
 '''
 def run_simulation(n):
-    global valid_equations
+    global EQUATIONS
     for i in range(n):
         reset_valid_equations()
-        target = valid_equations[randint(0,len(valid_equations)-1)]
+        target = EQUATIONS[randint(0,len(EQUATIONS)-1)]
         try:
             print("Equation: "+target)
             simulate(target)
@@ -462,11 +462,11 @@ def run_simulation(n):
 resets valid_equations to the equations stored in the json file
 '''
 def reset_valid_equations():
-    global valid_equations
+    global EQUATIONS
     try:
         with open('valid_equations.json','r') as f:
             data = json.load(f)
-            valid_equations = data["equations"]
+            EQUATIONS = data["equations"]
             indices = data["indices"]
     except:
         pass
@@ -475,9 +475,9 @@ def reset_valid_equations():
 starts a nerdle game with a random equation
 '''
 def play():
-    global valid_equations
+    global EQUATIONS
     reset_valid_equations()
-    target = valid_equations[randint(0,len(valid_equations)-1)]
+    target = EQUATIONS[randint(0,len(EQUATIONS)-1)]
     guesses = 0
     guesses=[]
     results=[]
@@ -492,10 +492,10 @@ def play():
                 print(u"\u2588"*8)
         print()
         guess = input()
-        if (guess == 'ex'):
+        if (guess == 'q'):
             return
         while (len(guess)!=len(target)):
-            print("guess must be length "+len(target))
+            print("Guess must have a length of "+len(target))
             print()
             guess = input()
         while (not equation_computes(guess)):
