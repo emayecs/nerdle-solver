@@ -578,7 +578,7 @@ def update_conditions(guess, result, old_conditions, old_equals_conditions):
         
         elif result[i].upper()=='P':
             # '=' in the wrong place
-            if guessed_char=='=':
+            if guessed_char=='=' and i >= 1:
                 equals_conditions[i-1] = False
             else:
                 frequency[SYMBOLS.index(guess[i])]+=1
@@ -1038,7 +1038,7 @@ def parse_arguments():
 
     solve_parser = subparser.add_parser('solve')
     solve_parser.add_argument('guess', type = str, help = "guess for the equation")
-    solve_parser.add_argument('result', type = str,  help = "string, each letter denoting the result of the guess")
+    solve_parser.add_argument('result', type = str,  help = "a string with each letter denoting the result of the guess")
 
     play_parser = subparser.add_parser('play')
     play_parser.add_argument('chances', type = int, help = "the number of chances that the user gets to guess the equation")
