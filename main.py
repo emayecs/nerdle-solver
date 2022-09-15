@@ -1030,11 +1030,11 @@ def parse_arguments():
     subparser = parser.add_subparsers(dest='command')
 
     parser.add_argument('--no_negatives', action='store_const', dest = 'include_negatives', const = False,
-     default = True, help = "equations with with negative numbers will not be included (e.g. -4*3=-12")
+     default = True, help = "equations with with negative numbers will not be included (e.g. -4*3=-12)")
     parser.add_argument('--no_leading_zeroes', action='store_const', dest = 'include_leading_zeroes', const = False,
-     default = True, help = "equations with leading zeroes will not be included (e.g. 004*3=12")
+     default = True, help = "equations with leading zeroes will not be included (e.g. 004*3=12)")
     parser.add_argument('--dne_zero', action='store_const', dest = 'allow_equal_zero', const = False,
-     default = True, help = "equations that equal 0 will not be included (e.g. 0*9999=0")
+     default = True, help = "equations that equal 0 will not be included (e.g. 0*9999=0)")
 
     solve_parser = subparser.add_parser('solve')
     solve_parser.add_argument('guess', type = str, help = "guess for the equation")
@@ -1044,7 +1044,7 @@ def parse_arguments():
     play_parser.add_argument('chances', type = int, help = "the number of chances that the user gets to guess the equation")
 
     simulate_parser = subparser.add_parser('simulate')
-    simulate_parser.add_argument('iterations', type = int, help = "number of desired simulations")
+    simulate_parser.add_argument('iterations', type = int, help = "number of simulations to run")
     simulate_parser.add_argument('first_guess', type = str, help = "the first guess to be used for the simulations")
     simulate_parser.add_argument('chances', type = int, help = "the number of chances that the simulator gets to guess the equation")
 
